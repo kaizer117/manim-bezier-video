@@ -1,0 +1,4 @@
+Bezier curves are parametric.
+
+When the behaviour or shape of a curve can be described by a parameter, the curve is said to be parametric.
+

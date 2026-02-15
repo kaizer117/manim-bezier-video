@@ -1,1 +1,4 @@
 venv
+src/media/*
+src/media/Tex
+setup.sh
