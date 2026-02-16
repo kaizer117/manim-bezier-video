@@ -1,25 +1,160 @@
 from manim import *
-from manim.utils.color import DVIPSNAMES
+# from manim.utils.color.DVIPSNAMES
 import numpy as np
 from missingcolors import *
 
 class BezierCurvePresentation(MovingCameraScene):
+      
+    # Helper functions
+
+    # Animate t from 0 to 1 with evaluation
+    def evaluate_basis(self,t_val):
+        # Calculate each basis function
+        b0 = (1-t_val)**3
+        b1 = 3*(1-t_val)**2*t_val
+        b2 = 3*(1-t_val)*t_val**2
+        b3 = t_val**3
+        
+        # Create new basis part with evaluated values
+        new_basis = MathTex(
+            rf"{b0:.2f} + \\",
+            rf"{b1:.2f} + \\",
+            rf"{b2:.2f} + \\",
+            rf"{b3:.2f}",
+            font_size=32,
+            color=YELLOW
+        )
+        return new_basis
+    
+    def create_bezier_curve(self, control_points, color=YELLOW):
+        """Create a cubic Bezier curve"""
+        def bezier_point(t):
+            b0 = (1-t)**3
+            b1 = 3*(1-t)**2*t
+            b2 = 3*(1-t)*t**2
+            b3 = t**3
+            return (b0 * control_points[0] + 
+                   b1 * control_points[1] + 
+                   b2 * control_points[2] + 
+                   b3 * control_points[3])
+        
+        return ParametricFunction(
+            bezier_point,
+            t_range=[0, 1],
+            color=color,
+            stroke_width=4
+        )
+    
+    def create_slider(self):
+        """Create a slider for t parameter"""
+        line = Line(LEFT * 3, RIGHT * 3, color=WHITE, stroke_width=3)
+        handle = Dot(color=RED)
+        handle.add_updater(lambda d: d.move_to(line.get_start() + (line.get_end() - line.get_start()) * self.t_value))
+        
+        slider = VGroup(line, handle)
+        self.t_value = 0  # Will be updated during animation
+        
+        return slider
+    
+    def animate_curve_with_slider(self, curve, slider, t_label, control_points):
+        """Animate curve drawing with slider movement"""
+        curve_copy = curve.copy()
+        curve_copy.set_stroke(opacity=0.3)
+        # self.add(curve_copy)
+        
+        # Animate the curve being drawn progressively
+        for t in np.linspace(0, 1, 100):
+            # Update slider position
+            self.t_value = t
+            slider[1].move_to(slider[0].get_start() + (slider[0].get_end() - slider[0].get_start()) * t)
+            
+            # Update t label
+            new_label = MathTex(f"t = {t:.2f}", font_size=24, color=WHITE)
+            new_label.next_to(slider, UP, buff=0.2)
+            t_label.become(new_label)
+            
+            # Draw partial curve
+            partial_curve = ParametricFunction(
+                lambda s: self.bezier_point(control_points, s),
+                t_range=[0, t],
+                color=YELLOW,
+                stroke_width=4
+            )
+            
+            self.add(partial_curve)
+            self.wait(0.1)
+            self.remove(partial_curve)
+            
+            if t < 1:
+                self.remove(partial_curve)
+        
+        # Final curve
+        final_curve = ParametricFunction(
+            lambda s: self.bezier_point(control_points, s),
+            t_range=[0, 1],
+            color=YELLOW,
+            stroke_width=4
+        )
+        self.add(final_curve)
+        # self.remove(curve_copy)
+        return final_curve
+    
+    def bezier_point(self, control_points, t):
+        """Helper for Bezier point calculation"""
+        b0 = (1-t)**3
+        b1 = 3*(1-t)**2*t
+        b2 = 3*(1-t)*t**2
+        b3 = t**3
+        return (b0 * control_points[0] + 
+               b1 * control_points[1] + 
+               b2 * control_points[2] + 
+               b3 * control_points[3])
+    
+    def create_4x4_grid(self):
+        """Create a 4x4 grid lines"""
+        grid = VGroup()
+        
+        # Vertical lines
+        for i in range(5):
+            x = (i - 2) * 2  # Scale to fit screen
+            line = Line(
+                start=[x, -3, 0],
+                end=[x, 3, 0],
+                color=WHITE,
+                stroke_width=1,
+                stroke_opacity=0.5
+            )
+            grid.add(line)
+        
+        # Horizontal lines
+        for i in range(5):
+            y = (i - 2) * 1.5  # Scale to fit screen
+            line = Line(
+                start=[-4, y, 0],
+                end=[4, y, 0],
+                color=WHITE,
+                stroke_width=1,
+                stroke_opacity=0.5
+            )
+            grid.add(line)
+        
+        return grid
+    
+    def get_grid_positions(self, rows, cols):
+        """Get center positions for grid cells"""
+        positions = []
+        for i in range(rows):
+            for j in range(cols):
+                x = (j - (cols-1)/2) * 2
+                y = ((rows-1)/2 - i) * 1.5
+                positions.append(np.array([x, y, 0]))
+        return positions
+
+class Intro(MovingCameraScene):
     def construct(self):
         # Title Scene
         self.title_scene()
-        
-        # Scene 1: Bezier Curve with Slider
-        self.scene1_bezier_with_slider()
-        
-        # Scene 2: 4x4 Parameterized Curves Grid
-        self.scene2_parameterized_grid()
-        
-        # Scene 3: Bezier Transformations
-        self.scene3_bezier_transformations()
 
-        # Scene 4: Degree Expansions
-        self.scene4_degree_expansions()
-    
     def title_scene(self):
         # Title
         title = Text("Bezier Curves", font_size=72, color=BLUE)
@@ -28,6 +163,10 @@ class BezierCurvePresentation(MovingCameraScene):
         self.play(Write(title))
         self.wait(3)
         self.play(FadeOut(title))
+
+class Scene1(BezierCurvePresentation):
+    def construct(self):
+        self.scene1_bezier_with_slider()
     
     def scene1_bezier_with_slider(self):
         # Control points for a wiggly Bezier curve
@@ -90,7 +229,12 @@ class BezierCurvePresentation(MovingCameraScene):
         
         # Fade everything out
         self.play(*[FadeOut(mob) for mob in [c_t, grid, dots, curve, slider, t_label, final_curve, polygon]])
-    
+
+class Scene2(BezierCurvePresentation):
+    def construct(self):
+        #Scene 2
+        self.scene2_parameterized_grid()
+
     def scene2_parameterized_grid(self):
         # Create 4x4 grid
         grid = self.create_4x4_grid()
@@ -302,7 +446,12 @@ class BezierCurvePresentation(MovingCameraScene):
         
         # Fade out everything
         self.play(FadeOut(VGroup(grid, curves)))
-        
+
+class Scene3(BezierCurvePresentation):
+    def construct(self):
+        # Scene 3
+        self.scene3_bezier_transformations()
+
     def scene3_bezier_transformations(self):
         # Show C(t)
         c_t = MathTex("C(t)", font_size=48, color=YELLOW)
@@ -327,6 +476,10 @@ class BezierCurvePresentation(MovingCameraScene):
         # Fade out everything
         self.play(*[FadeOut(mob) for mob in [c_t, bezier_eq]])
 
+class Scene4(BezierCurvePresentation):
+    def construct(self):
+        self.scene4_degree_expansions()
+    
     def scene4_degree_expansions(self):
         # Clear the scene
         # self.clear_rects_and_transform()
@@ -438,130 +591,99 @@ class BezierCurvePresentation(MovingCameraScene):
             h_line, degree2_label, degree3_label, 
             quadratic_bezier, cubic_bezier, basis_explanation
         ]])
-    
-    # Helper functions
-    def create_bezier_curve(self, control_points, color=YELLOW):
-        """Create a cubic Bezier curve"""
-        def bezier_point(t):
-            b0 = (1-t)**3
-            b1 = 3*(1-t)**2*t
-            b2 = 3*(1-t)*t**2
-            b3 = t**3
-            return (b0 * control_points[0] + 
-                   b1 * control_points[1] + 
-                   b2 * control_points[2] + 
-                   b3 * control_points[3])
-        
-        return ParametricFunction(
-            bezier_point,
-            t_range=[0, 1],
-            color=color,
-            stroke_width=4
-        )
-    
-    def create_slider(self):
-        """Create a slider for t parameter"""
-        line = Line(LEFT * 3, RIGHT * 3, color=WHITE, stroke_width=3)
-        handle = Dot(color=RED)
-        handle.add_updater(lambda d: d.move_to(line.get_start() + (line.get_end() - line.get_start()) * self.t_value))
-        
-        slider = VGroup(line, handle)
-        self.t_value = 0  # Will be updated during animation
-        
-        return slider
-    
-    def animate_curve_with_slider(self, curve, slider, t_label, control_points):
-        """Animate curve drawing with slider movement"""
-        curve_copy = curve.copy()
-        curve_copy.set_stroke(opacity=0.3)
-        # self.add(curve_copy)
-        
-        # Animate the curve being drawn progressively
-        for t in np.linspace(0, 1, 100):
-            # Update slider position
-            self.t_value = t
-            slider[1].move_to(slider[0].get_start() + (slider[0].get_end() - slider[0].get_start()) * t)
-            
-            # Update t label
-            new_label = MathTex(f"t = {t:.2f}", font_size=24, color=WHITE)
-            new_label.next_to(slider, UP, buff=0.2)
-            t_label.become(new_label)
-            
-            # Draw partial curve
-            partial_curve = ParametricFunction(
-                lambda s: self.bezier_point(control_points, s),
-                t_range=[0, t],
-                color=YELLOW,
-                stroke_width=4
-            )
-            
-            self.add(partial_curve)
-            self.wait(0.1)
-            self.remove(partial_curve)
-            
-            if t < 1:
-                self.remove(partial_curve)
-        
-        # Final curve
-        final_curve = ParametricFunction(
-            lambda s: self.bezier_point(control_points, s),
-            t_range=[0, 1],
-            color=YELLOW,
-            stroke_width=4
-        )
-        self.add(final_curve)
-        # self.remove(curve_copy)
-        return final_curve
-    
-    def bezier_point(self, control_points, t):
-        """Helper for Bezier point calculation"""
-        b0 = (1-t)**3
-        b1 = 3*(1-t)**2*t
-        b2 = 3*(1-t)*t**2
-        b3 = t**3
-        return (b0 * control_points[0] + 
-               b1 * control_points[1] + 
-               b2 * control_points[2] + 
-               b3 * control_points[3])
-    
-    def create_4x4_grid(self):
-        """Create a 4x4 grid lines"""
-        grid = VGroup()
-        
-        # Vertical lines
-        for i in range(5):
-            x = (i - 2) * 2  # Scale to fit screen
-            line = Line(
-                start=[x, -3, 0],
-                end=[x, 3, 0],
-                color=WHITE,
-                stroke_width=1,
-                stroke_opacity=0.5
-            )
-            grid.add(line)
-        
-        # Horizontal lines
-        for i in range(5):
-            y = (i - 2) * 1.5  # Scale to fit screen
-            line = Line(
-                start=[-4, y, 0],
-                end=[4, y, 0],
-                color=WHITE,
-                stroke_width=1,
-                stroke_opacity=0.5
-            )
-            grid.add(line)
-        
-        return grid
-    
-    def get_grid_positions(self, rows, cols):
-        """Get center positions for grid cells"""
-        positions = []
-        for i in range(rows):
-            for j in range(cols):
-                x = (j - (cols-1)/2) * 2
-                y = ((rows-1)/2 - i) * 1.5
-                positions.append(np.array([x, y, 0]))
-        return positions
 
-# To render: manim -pql full.py BezierCurvePresentation
+class Scene5(BezierCurvePresentation):
+    def construct(self):
+        # Initial cubic Bezier equation
+        cubic_bezier = MathTex(
+            r"B(t) = (1-t)^3 P_0 + 3(1-t)^2 t P_1 + 3(1-t) t^2 P_2 + t^3 P_3",
+            font_size=28,
+            color=BLUE
+        )
+        cubic_bezier.move_to(ORIGIN)
+        
+        # Fade in initial equation
+        self.play(FadeIn(cubic_bezier, scale=0.8))
+        self.wait(1)
+        
+        # First transformation to aligned version
+        bezier_aligned = MathTex(
+            r"B(t) = (1-t)^3 P_0 \\",
+            r"+ 3(1-t)^2 t P_1 \\",
+            r"+ 3(1-t) t^2 P_2 \\",
+            r"+ t^3 P_3",
+            font_size=28,
+            color=BLUE
+        )
+        bezier_aligned.move_to(ORIGIN)
+        
+        self.play(Transform(cubic_bezier, bezier_aligned))
+        self.wait(1)
+        
+        # Create the two separate parts
+        # Basis functions part
+        basis_part = MathTex(
+            r"(1-t)^3 + \\",
+            r"3(1-t)^2 t + \\",
+            r"3(1-t) t^2 + \\",
+            r"t^3",
+            font_size=32,
+            color=YELLOW
+        )
+        
+        # Control points part
+        points_part = MathTex(
+            r"P_0 \\",
+            r"P_1 \\",
+            r"P_2 \\",
+            r"P_3",
+            font_size=32,
+            color=RED
+        )
+
+        # Position them side by side
+        basis_part.move_to(ORIGIN + LEFT * 3)
+        points_part.move_to(ORIGIN + RIGHT * 3)
+        
+        # Transform the single equation into the two parts
+        self.play(
+            Transform(cubic_bezier, basis_part),
+            FadeIn(points_part, shift=RIGHT),
+            run_time = 2
+        )
+        self.wait(1)
+        
+        # # Add multiplication symbol between them
+        # multiply = MathTex(r"\times", font_size=40, color=WHITE)
+        # multiply.move_to(ORIGIN)
+        # self.play(FadeIn(multiply))
+        # self.wait(1)
+        
+        # Add "t = " label above basis part
+        t_label = Text("t = ", font_size=24, color=WHITE)
+        t_label.next_to(basis_part, UP, buff=0.5)
+        t_value = DecimalNumber(0, num_decimal_places=1, font_size=24, color=YELLOW)
+        t_value.next_to(t_label, RIGHT)
+        
+        self.play(Write(t_label), Write(t_value))
+        self.wait(1)
+        self.remove(basis_part)
+        new_basis_loc = basis_part.get_center()
+                
+        # Animate t from 0 to 1
+        for t in np.linspace(0, 1, 5):  # 11 steps from 0 to 1
+            new_basis = self.evaluate_basis(t)
+            new_basis.move_to(new_basis_loc)
+            new_t_value = DecimalNumber(t, num_decimal_places=1, font_size=24, color=YELLOW)
+            new_t_value.next_to(t_label, RIGHT)
+            
+            self.play(
+                Transform(basis_part, new_basis),
+                Transform(t_value, new_t_value),
+                run_time=0.5
+            )
+            self.wait(0.1)
+        
+        self.wait(2)
+
+# To render: manim -pql full.py SceneN
