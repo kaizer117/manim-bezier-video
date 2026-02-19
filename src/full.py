@@ -8,6 +8,13 @@ from missingcolors import *
 class BezierCurvePresentation(MovingCameraScene):
       
     # Helper functions
+    def value_to_color(self, val):
+        # Ensure val is between 0 and 1
+        val = np.clip(val, 0, 1)
+        
+        # Continuous gradient from RED (0) to GREEN (1)
+        return interpolate_color(GREEN, RED, val)
+    
     def evaluate_basis_individual(self, t_val):
         # Calculate each basis function
         b0 = (1-t_val)**3
@@ -19,19 +26,14 @@ class BezierCurvePresentation(MovingCameraScene):
         
         # Define color gradient function using Manim's color utilities
         
-        def value_to_color(val):
-            # Ensure val is between 0 and 1
-            val = np.clip(val, 0, 1)
-            
-            # Continuous gradient from RED (0) to GREEN (1)
-            return interpolate_color(GREEN, RED, val)
+        
         
         # Create individual lines with colors
         lines = VGroup()
         
         for i, val in enumerate(values):
             # Choose color based on value
-            color = value_to_color(val)
+            color = self.value_to_color(val)
             line = MathTex(rf"{val:.3f}", font_size=32, color=color)
             
             lines.add(line)
@@ -167,10 +169,6 @@ class BezierCurvePresentation(MovingCameraScene):
 
 class Intro(MovingCameraScene):
     def construct(self):
-        # Title Scene
-        self.title_scene()
-
-    def title_scene(self):
         # Title
         title = Text("Bezier Curves", font_size=72, color=BLUE)
         title.move_to(ORIGIN)
@@ -181,9 +179,6 @@ class Intro(MovingCameraScene):
 
 class Scene1(BezierCurvePresentation):
     def construct(self):
-        self.scene1_bezier_with_slider()
-    
-    def scene1_bezier_with_slider(self):
         # Control points for a wiggly Bezier curve
         control_points = [
             np.array([-4, -2, 0]),
@@ -464,38 +459,132 @@ class Scene2(BezierCurvePresentation):
 
 class Scene3(BezierCurvePresentation):
     def construct(self):
-        # Scene 3
-        self.scene3_bezier_transformations()
-
-    def scene3_bezier_transformations(self):
-        # Show C(t)
+        # Show C(t) in the middle
         c_t = MathTex("C(t)", font_size=48, color=YELLOW)
         c_t.move_to(ORIGIN)
         self.play(Write(c_t))
+        self.wait(1)  # Hold for 1 second
+        
+        # Split the Bezier equation into parts
+        part1 = MathTex(r"\sum_{i=0}^{n}\binom{n}{i}", font_size=36, color=BLUE)
+        part2 = MathTex(r"(1-t)^{n-i} t^i", font_size=36, color=BLUE)
+        part3 = MathTex(r"P_i", font_size=36, color=BLUE)
+        part4 = MathTex(r"t \in [0,1]", font_size=36, color=BLUE)
+        
+        # Arrange them with B(t) = and proper spacing
+        b_t = MathTex(r"C(t) =", font_size=36, color=BLUE)
+        
+        # Create the full equation arrangement
+        equation_parts = VGroup(b_t, part1, part2, part3)
+        equation_parts.arrange(RIGHT, buff=0.2)
+        
+        # Add part4 below
+        part4.next_to(equation_parts, DOWN, buff=0.5)
+        
+        # Position the whole thing at the center
+        full_equation = VGroup(equation_parts, part4)
+        full_equation.move_to(ORIGIN)
+        
+        # LaggedStart: fade out C(t) while the equation fades in piece by piece
+        self.play(
+            LaggedStart(
+                FadeOut(c_t),
+                AnimationGroup(
+                    Write(b_t),
+                    Write(part1),
+                    Write(part2),
+                    Write(part3),
+                    Write(part4),
+                    lag_ratio=0.1
+                ),
+                lag_ratio=0.3
+            )
+        )
+        self.wait(1)
+        
+        # Store references for highlighting
+        self.part1 = part1
+        self.part2 = part2
+        self.part3 = part3
+        self.part4 = part4
+        self.b_t = b_t
+        self.full_equation = full_equation
+        
+        # Highlight part2 and part4 together
+        highlight_part2 = SurroundingRectangle(
+            part2, 
+            color=GREEN, 
+            buff=0.1,
+            stroke_width=3,
+            corner_radius=0.1
+        )
+        
+        highlight_part4 = SurroundingRectangle(
+            part4, 
+            color=GREEN, 
+            buff=0.1,
+            stroke_width=3,
+            corner_radius=0.1
+        )
+        
+        self.play(
+            Create(highlight_part2),
+            Create(highlight_part4),
+            run_time=1.5
+        )
+        self.wait(0.5)
+        self.play(
+            FadeOut(highlight_part2),
+            FadeOut(highlight_part4)
+        )
         self.wait(0.5)
         
-        # Shift leftward
-        self.play(c_t.animate.shift(LEFT * 3))
-        
-        # Full Bezier equation
-        bezier_eq = MathTex(
-            r"B(t) = \sum_{i=0}^{n} \binom{n}{i} (1-t)^{n-i} t^i P_i, \quad t \in [0,1]",
-            font_size=36,
-            color=BLUE
+        # Highlight part3 (P_i)
+        highlight_part3 = SurroundingRectangle(
+            part3, 
+            color=RED, 
+            buff=0.1,
+            stroke_width=3,
+            corner_radius=0.1
         )
-        bezier_eq.next_to(c_t, RIGHT, buff=1)
         
-        self.play(Write(bezier_eq))
-        self.wait(4)
+        self.play(Create(highlight_part3), run_time=1.5)
+        self.wait(0.5)
+        self.play(FadeOut(highlight_part3))
+        self.wait(0.5)
         
-        # Fade out everything
-        self.play(*[FadeOut(mob) for mob in [c_t, bezier_eq]])
+        # Highlight part1 (summation and binomial)
+        highlight_part1 = SurroundingRectangle(
+            part1, 
+            color=ORANGE, 
+            buff=0.1,
+            stroke_width=3,
+            corner_radius=0.1
+        )
+        
+        self.play(Create(highlight_part1), run_time=1.5)
+        self.wait(0.5)
+        self.play(FadeOut(highlight_part1))
+        self.wait(0.5)
+        
+        # Optional: Add a final glow around everything before fading
+        final_highlight = SurroundingRectangle(
+            full_equation,
+            color=YELLOW,
+            buff=0.2,
+            stroke_width=2,
+            stroke_opacity=0.5
+        )
+        self.play(Create(final_highlight), run_time=0.5)
+        self.wait(0.5)
+        self.play(FadeOut(final_highlight))
+        
+        # Fade everything to black
+        self.play(FadeOut(full_equation))
+        self.wait(0.5)
 
 class Scene4(BezierCurvePresentation):
     def construct(self):
-        self.scene4_degree_expansions()
-    
-    def scene4_degree_expansions(self):
         # Clear the scene
         # self.clear_rects_and_transform()
         
@@ -695,7 +784,6 @@ class Scene5(BezierCurvePresentation):
         
         self.wait(2)
 
-
 class Scene6(BezierCurvePresentation):
     def construct(self):
         # Control points for the Bezier curve
@@ -724,9 +812,9 @@ class Scene6(BezierCurvePresentation):
     def show_basis_and_points(self):
         # Basis part (Bernstein polynomials)
         self.basis_part = MathTex(
-            r"(1-t)^3 + \\",
-            r"3(1-t)^2 t + \\",
-            r"3(1-t) t^2 + \\",
+            r"(1-t)^3 \\",
+            r"3(1-t)^2 t \\",
+            r"3(1-t) t^2 \\",
             r"t^3",
             font_size=32,
             color=YELLOW
@@ -743,8 +831,8 @@ class Scene6(BezierCurvePresentation):
         )
         
         # Position them side by side at top
-        self.basis_part.move_to(ORIGIN + LEFT * 3 + UP * 2)
-        self.points_part.move_to(ORIGIN + RIGHT * 3 + UP * 2)
+        self.basis_part.move_to(ORIGIN + LEFT * 3)
+        self.points_part.move_to(ORIGIN + RIGHT * 3)
         
         
         
@@ -758,10 +846,10 @@ class Scene6(BezierCurvePresentation):
         
     
     def shift_and_add_grid(self):
-        shift_amount = DOWN * 4.5
+        shift_amount = DOWN * 2.5
         self.play(
-            self.basis_part.animate.shift(shift_amount),
-            self.points_part.animate.shift(shift_amount)
+            self.basis_part.animate.shift(shift_amount+LEFT * 1),
+            self.points_part.animate.shift(shift_amount+RIGHT * 0.5)
         )
         # Get the current positions of basis and points parts
         basis_bottom = self.basis_part.get_bottom()
@@ -856,7 +944,7 @@ class Scene6(BezierCurvePresentation):
                 start=self.grid.c2p(self.control_points[i][0], self.control_points[i][1]),
                 end=self.grid.c2p(self.control_points[i+1][0], self.control_points[i+1][1]),
                 color=BLUE,
-                stroke_opacity=0.5
+                stroke_opacity=0.2
             )
             self.control_lines.add(line)
         
@@ -864,6 +952,7 @@ class Scene6(BezierCurvePresentation):
         self.wait(0.5)
     
     def animate_t_variation_with_lines(self):
+        #This function will be useful if we can isolate it properly
         # Create slider
         self.slider = self.create_slider()
         self.slider.to_edge(DOWN, buff=0.2)
@@ -881,7 +970,7 @@ class Scene6(BezierCurvePresentation):
         
         # Create the full curve (will be drawn progressively)
         self.full_curve = self.create_bezier_curve_mobject()
-        self.full_curve.set_stroke(opacity=0.3)
+        self.full_curve.set_stroke(opacity=0.2)
         # self.add(self.full_curve)
         
         # Initialize colored lines
@@ -914,7 +1003,7 @@ class Scene6(BezierCurvePresentation):
             line_colors = [self.value_to_color(val) for val in values]
             
             # Update basis part with colors
-            new_basis = self.evaluate_basis_with_colormap(t)
+            new_basis = self.evaluate_basis_individual(t)
             new_basis.move_to(self.basis_part.get_center())
             
             # Update t label
@@ -955,8 +1044,10 @@ class Scene6(BezierCurvePresentation):
                 new_lines.add(line)
                 
             if (t==0):
+                # Fade in for the first iternation
                 self.play(FadeIn(self.colored_lines),ReplacementTransform(self.basis_part,new_basis),FadeIn(self.full_curve),run_time=1)
                 self.basis_part=new_basis
+                self.wait(1)
             else:
                 self.remove(self.colored_lines)
                 self.colored_lines = new_lines
@@ -1002,19 +1093,6 @@ class Scene6(BezierCurvePresentation):
         self.add(self.colored_lines)
         
         self.wait(1)
-
-    def value_to_color(self, val):
-        """Convert basis value to color (0=BLUE, 0.5=GREEN, 1=RED)"""
-        from manim.utils.color import interpolate_color, BLUE, GREEN, RED
-        
-        val = np.clip(val, 0, 1)
-        
-        if val <= 0.5:
-            # Blue (0) to Green (0.5)
-            return interpolate_color(BLUE, GREEN, val * 2)
-        else:
-            # Green (0.5) to Red (1)
-            return interpolate_color(GREEN, RED, (val - 0.5) * 2)
 
     def evaluate_basis_with_colormap(self, t_val):
         """Create basis display with colors matching the lines"""
