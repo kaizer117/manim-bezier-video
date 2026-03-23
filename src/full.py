@@ -753,7 +753,7 @@ class Scene5(BezierCurvePresentation):
         self.play(
             ReplacementTransform(cubic_bezier, basis_part),
             FadeIn(points_part, shift=RIGHT),
-            run_time = 2
+            run_time=2
         )
         self.wait(1)
         
@@ -768,7 +768,7 @@ class Scene5(BezierCurvePresentation):
         new_basis_loc = basis_part.get_center()
         
         # Animate t from 0 to 1
-        for t in np.linspace(0, 1, 40):  # 11 steps from 0 to 1
+        for t in np.linspace(0, 1, 40):
             new_basis = self.evaluate_basis_individual(t)
             new_basis.move_to(new_basis_loc)
             new_t_value = DecimalNumber(t, num_decimal_places=3, font_size=24, color=YELLOW)
@@ -783,6 +783,193 @@ class Scene5(BezierCurvePresentation):
             self.wait(0.1)
         
         self.wait(2)
+        
+        # Jump back to t=0
+        new_basis = self.evaluate_basis_individual(0)
+        new_basis.move_to(new_basis_loc)
+        new_t_value = DecimalNumber(0, num_decimal_places=3, font_size=24, color=YELLOW)
+        new_t_value.next_to(t_label, RIGHT)
+        
+        self.play(
+            ReplacementTransform(basis_part, new_basis),
+            Transform(t_value, new_t_value),
+            run_time=0.5
+        )
+        basis_part = new_basis
+        
+        self.wait(1)
+        self.play(FadeOut(points_part), run_time=1)
+        self.wait(0.5)
+        
+        # Shift the basis part and t label leftward
+        target_x = ORIGIN[0] - 5  # Shift further left
+        self.play(
+            basis_part.animate.move_to(ORIGIN + LEFT * 5),
+            t_label.animate.move_to(ORIGIN + LEFT * 5 + UP * 3),
+            t_value.animate.move_to(ORIGIN + LEFT * 5 + UP * 3 + RIGHT * 0.5),
+            run_time=1.5
+        )
+        
+        # Create cartesian plane
+        axes = Axes(
+            x_range=[0, 1, 0.2],
+            y_range=[0, 1, 0.2],
+            x_length=6,
+            y_length=5,
+            axis_config={"color": WHITE, "include_numbers": True},
+            tips=False
+        )
+        axes.move_to(ORIGIN + RIGHT * 1.5)
+        
+        # Add labels
+        x_label = axes.get_x_axis_label("t", edge=RIGHT, direction=RIGHT)
+        y_label = axes.get_y_axis_label("B_i(t)", edge=UP, direction=UP)
+        
+        self.play(
+            FadeIn(axes, shift=LEFT),
+            Write(x_label),
+            Write(y_label),
+            run_time=2
+        )
+        self.wait(1)
+        
+        # Reset t to 0
+        reset_t_value = DecimalNumber(0, num_decimal_places=3, font_size=24, color=YELLOW)
+        reset_t_value.move_to(t_value)
+        self.play(Transform(t_value, reset_t_value))
+        
+        # Create the 4 basis functions for degree 3 (Bernstein polynomials)
+        # B_{3,0}(t) = (1-t)^3
+        # B_{3,1}(t) = 3(1-t)^2 t
+        # B_{3,2}(t) = 3(1-t) t^2
+        # B_{3,3}(t) = t^3
+        
+        # Create the 4 basis functions for degree 3 (Bernstein polynomials)
+        colors = [BLUE, GREEN, ORANGE, PURPLE]
+        
+        # Create graphs that will be drawn progressively
+        graphs = VGroup()
+        
+        for i in range(4):
+            # Start with empty curves (t_range from 0 to 0)
+            curve = ParametricFunction(
+                lambda s, i=i: axes.c2p(s, self.bernstein_basis(3, i, s)),
+                t_range=[0, 0],
+                color=colors[i],
+                stroke_width=3
+            )
+            graphs.add(curve)
+            self.add(curve)
+        
+        # Animate t from 0 to 1 with gradual graph drawing
+        t_range = np.linspace(0, 1, 150)
+        
+        for idx, t in enumerate(t_range):
+            # Update basis values
+            new_basis = self.evaluate_basis_individual(t)
+            new_basis.move_to(ORIGIN + LEFT * 5)
+            new_t_value = DecimalNumber(t, num_decimal_places=3, font_size=24, color=YELLOW)
+            new_t_value.move_to(ORIGIN + LEFT * 5 + UP * 3 + RIGHT * 0.5)
+            
+            # Update each curve to extend to current t
+            new_curves = VGroup()
+            for i in range(4):
+                new_curve = ParametricFunction(
+                    lambda s, i=i: axes.c2p(s, self.bernstein_basis(3, i, s)),
+                    t_range=[0, t],
+                    color=colors[i],
+                    stroke_width=3
+                )
+                new_curves.add(new_curve)
+            
+            # Update display
+            if idx == 0:
+                self.play(
+                    ReplacementTransform(basis_part, new_basis),
+                    Transform(t_value, new_t_value),
+                    run_time=0.1
+                )
+            else:
+                self.play(
+                    ReplacementTransform(basis_part, new_basis),
+                    Transform(t_value, new_t_value),
+                    *[Transform(graphs[i], new_curves[i]) for i in range(4)],
+                    run_time=0.04
+                )
+            basis_part = new_basis
+            graphs = new_curves
+        
+        self.wait(1)
+        
+        # Fade out the t label and basis column
+        self.play(
+            FadeOut(t_label),
+            FadeOut(t_value),
+            FadeOut(basis_part),
+            run_time=1.5
+        )
+        
+        self.wait(0.5)
+        
+        # Highlight the graphs
+        highlight_rect = SurroundingRectangle(
+            graphs,
+            color=YELLOW,
+            buff=0.2,
+            stroke_width=4
+        )
+        
+        self.play(Create(highlight_rect), run_time=1)
+        self.wait(0.5)
+        
+        # Add text "Bernstein basis"
+        bernstein_text = Text("Bernstein Basis", font_size=36, color=YELLOW)
+        bernstein_text.move_to(ORIGIN + DOWN * 3)
+        
+        self.play(Write(bernstein_text), run_time=1.5)
+        self.wait(2)
+        
+        # Fade out everything
+        self.play(
+            FadeOut(axes),
+            FadeOut(x_label),
+            FadeOut(y_label),
+            FadeOut(highlight_rect),
+            FadeOut(bernstein_text),
+            *[FadeOut(graph) for graph in graphs],
+            run_time=2
+        )
+        
+        self.wait(1)
+    
+    def evaluate_basis_individual(self, t):
+        """Evaluate the individual basis functions at time t"""
+        t_val = t
+        basis_values = [
+            (1-t_val)**3,
+            3*(1-t_val)**2 * t_val,
+            3*(1-t_val) * t_val**2,
+            t_val**3
+        ]
+        
+        # Format with 3 decimal places
+        basis_strings = [f"{val:.3f}" for val in basis_values]
+        
+        basis_tex = MathTex(
+            basis_strings[0] + r" \\",
+            basis_strings[1] + r" \\",
+            basis_strings[2] + r" \\",
+            basis_strings[3],
+            font_size=32,
+            color=YELLOW
+        )
+        
+        return basis_tex
+    
+    def bernstein_basis(self, n, i, t):
+        """Calculate Bernstein basis polynomial B_{n,i}(t)"""
+        from math import comb
+        return comb(n, i) * (t**i) * ((1-t)**(n-i))
 
 class Scene6(BezierCurvePresentation):
     def construct(self):
